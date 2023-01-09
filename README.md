@@ -29,7 +29,7 @@ Faça o seguinte comando:
 
 Ative o seu Ambiente Virtual:
 ```python
- . minhaenv/bin/activate
+ . minhaenv/Scripts/activate
 ```
 
 ## Instale o framework Django::
@@ -202,7 +202,6 @@ class Consulta(models.Model):
 ```python
 python manage.py makemigrations medicos
 ```
-
 + Faça o mesmo com clientes:
 
 ```python
@@ -211,6 +210,24 @@ python manage.py makemigrations clientes
 + E por último consultas:
 ```python
 python manage.py makemigrations consultas
+```
+
+O Django preparou um arquivo de migração que precisamos aplicar ao nosso banco de dados:
+
++ Faça o seguinte comando com os 3 apps:
+
+```python
+python manage.py migrate medicos
+```
++ O próximo:
+
+```python
+python manage.py migrate clientes
+```
+
++ E por último:
+```python
+python manage.py migrate consultas
 ```
 
 ## Django Admin:
@@ -289,3 +306,229 @@ admin.site.register(Consulta, ConsultaAdmin)
 ```python
 python manage.py runserver #startando o servidor
 ```
+
++ Vamos acessar a área do administrador do sistema que já vem prontinho para gente graças ao framework Django, para isso iremos usamos o segunte endereço no navegador de sua preferência:
+```python
+http://127.0.0.1:8000/admin/
+```
+
+## Serialização:
+Crie um arquivo no diretório de medicos denominado serializers.py (medicos/serializer.py) e adicione o seguinte código.
+
+```python
+from django.db import models
+from django.db.models import fields
+from rest_framework import serializers
+from medicos.models import Especialidades, Cadastrar_Medicos, Agenda
+
+class EspecialidadesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Especialidades
+        fields = ['nome']
+        verbose_name = 'Especialidade'
+        verbose_name_plural = 'Especialidades'
+
+class Cadastrar_MedicosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cadastrar_Medicos
+        fields = ['nome', 'CRM', 'email', 'telefone', 'especialidade']
+        verbose_name = 'Cadastar_Medico'
+        verbose_name_plural = 'Cadastrar_Medicos'
+
+class AgendaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Agenda
+        fields = ['medico', 'data', 'horario']
+        verbose_name = 'Agenda'
+        verbose_name_plural = 'Agendas'
+
+class ListaEspecialidadesSerializer(serializers.ModelSerializer):
+    especialidades_nome = serializers.ReadOnlyField(source='especialidades.nome')
+    class Meta:
+        model = Especialidades
+        fields = ['especialidades_nome',]
+
+class ListaMedicosCadastradosSerializer(serializers.ModelSerializer):
+    medicoscadastrados_nome = serializers.ReadOnlyField(source='medicoscadastrados.nome')
+    class Meta:
+        model = Cadastrar_Medicos
+        fields = ['medicoscadastrados_nome',]
+
+class ListaAgendamentosSerializer(serializers.ModelSerializer):
+    agendamentos_nome = serializers.ReadOnlyField(source='agendamentos.nome')
+    class Meta:
+        model = Agenda
+        fields = ['agendamentos_nome',]
+```
+
++ Faça o mesmo para clientes:
+
+Crie um arquivo no diretório de clientes denominado serializers.py (clientes/serializer.py) e adicione o seguinte código.
+
+```python
+from rest_framework import serializers
+from clientes.models import Cliente
+
+class ClienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cliente
+        fields = '__all__'
+        verbose_name = 'Cliente'
+        verbose_name_plural = 'Clientes'
+```
+
++ Faça o mesmo para consultas:
+
+Crie um arquivo no diretório de consultas denominado serializers.py (consultas/serializer.py) e adicione o seguinte código.
+
+```python
+from rest_framework import serializers
+from consultas.models import Consulta
+
+class ConsultasSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Consulta
+        fields = '__all__'
+        verbose_name = 'Consulta'
+        verbose_name_plural = 'Consultas'
+```
+
+## Views - Escrevendo visualizações regulares do Django usando nosso Serializer:
+
+Vamos ver como podemos escrever algumas visualizações de API usando nossa nova classe Serializer. 
+
++ Edite o arquivo medicos/views.py e adicione o seguinte:
+
+```python
+from django.db.models.query import QuerySet
+from rest_framework import permissions
+from medicos.models import Especialidades, Cadastrar_Medicos, Agenda
+from django.shortcuts import render
+
+from rest_framework import serializers, viewsets, generics
+from medicos.serializers import EspecialidadesSerializer, Cadastrar_MedicosSerializer, AgendaSerializer, ListaEspecialidadesSerializer, ListaMedicosCadastradosSerializer, ListaAgendamentosSerializer
+from rest_framework.authentication import BaseAuthentication, BasicAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+class EspecialidadesViewSet(viewsets.ModelViewSet):
+    """Exibindo todas as especialidades"""
+    queryset = Especialidades.objects.all()
+    serializer_class = EspecialidadesSerializer
+    #authentication_classes = [BaseAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+class Cadastrar_MedicosViewSet(viewsets.ModelViewSet):
+    """Exibindo todos os medicos cadastrados"""
+    queryset = Cadastrar_Medicos.objects.all()
+    serializer_class = Cadastrar_MedicosSerializer
+    #authentication_classes = [BaseAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+class AgendaViewSet(viewsets.ModelViewSet):
+    """Exibindo todos os agendamentos"""
+    queryset = Agenda.objects.all()
+    serializer_class = AgendaSerializer
+    #authentication_classes = [BaseAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+class ListaEspecialidadesSerializer(serializers.ModelSerializer):
+    def get_queryset(self):
+        queryset = Especialidades.objects.filter(especialidade_id=self.kwargs['pk']) 
+        return queryset
+    
+    serializer_class = ListaEspecialidadesSerializer
+    authentication_classes = [BaseAuthentication]
+    permission_classes = [IsAuthenticated]
+
+class ListaMedicosCadastradosSerializer(serializers.ModelSerializer):
+    def get_queryset(self):
+        queryset = Cadastrar_Medicos.objects.filter(medicoscadastrados_id=self.kwargs['pk']) 
+        return queryset
+    
+    serializer_class = ListaMedicosCadastradosSerializer
+    authentication_classes = [BaseAuthentication]
+    permission_classes = [IsAuthenticated]
+
+class ListaAgendamentosSerializer(serializers.ModelSerializer):
+    def get_queryset(self):
+        queryset = Agenda.objects.filter(agendaementos_id=self.kwargs['pk']) 
+        return queryset
+    
+    serializer_class = ListaAgendamentosSerializer
+    authentication_classes = [BaseAuthentication]
+    permission_classes = [IsAuthenticated]
+```
+
++ Edite o arquivo clientes/views.py e adicione o seguinte:
+
+```python
+from django.shortcuts import render
+from rest_framework import viewsets
+from clientes.serializers import ClienteSerializer
+from clientes.models import Cliente
+
+class ClientesViewSet(viewsets.ModelViewSet):
+    """Listando clientes"""
+    queryset = Cliente.objects.all()
+    serializer_class = ClienteSerializer
+```
+
++ Edite o arquivo consultas/views.py e adicione o seguinte:
+
+```python
+from django.shortcuts import render
+from rest_framework import viewsets
+from rest_framework import permissions
+from consultas.serializers import ConsultasSerializer
+from consultas.models import Consulta
+
+class ConsultasViewSet(viewsets.ModelViewSet):
+    """Listando clientes"""
+    queryset = Consulta.objects.all()
+    serializer_class = ConsultasSerializer
+```
+
+## Urls - Precisamos conectar essas visualizações:
+
+### Suas URLs no Django REST!
+
+Queremos que http://127.0.0.1:8000/ seja a página inicial da nossa clinica API e exiba uma as urls que configuramos anteriormente.
+
+Abra o arquivo clinica_api/core/urls.py no seu editor e veja o que aparece:
+
+
+```python
+from django.contrib import admin
+from django.urls import path, include
+from rest_framework import routers
+from medicos.views import EspecialidadesViewSet, Cadastrar_MedicosViewSet, AgendaViewSet, ListaEspecialidadesSerializer, ListaMedicosCadastradosSerializer, ListaAgendamentosSerializer
+from clientes.views import ClientesViewSet
+from consultas.views import ConsultasViewSet
+
+router = routers.DefaultRouter()
+router.register('Especialidades', EspecialidadesViewSet, basename='Especialidades')
+router.register('Cadastrar_Medicos', Cadastrar_MedicosViewSet, basename='Cadastrar_Medicos')
+router.register('Agenda', AgendaViewSet, basename='Agenda')
+router.register('Clientes', ClientesViewSet, basename='Clientes')
+router.register('Consultas', ConsultasViewSet, basename='Consultas')
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('',include(router.urls)),
+    path('clientes/', include('clientes.urls', namespace="clientes")),
+    path('consultas/', include('consultas.urls', namespace="consultas")),
+]
+```
+
++ Vamos startar o servidor web
+
+```python
+python manage.py runserver #startando o servidor
+```
+
+
+```python
+http://127.0.0.1:8000/
+```
+
+Agora podemos vizualizar a página de API Root da nossa clinica API.
