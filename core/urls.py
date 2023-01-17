@@ -18,7 +18,8 @@ from django.urls import path, include
 from rest_framework import routers
 from medicos.views import EspecialidadesViewSet, Cadastrar_MedicosViewSet, AgendaViewSet, ListaEspecialidadesSerializer, ListaMedicosCadastradosSerializer, ListaAgendamentosSerializer
 from clientes.views import ClientesViewSet
-from consultas.views import ConsultasViewSet
+from consultas.views import ConsultasViewSet, index
+
 
 router = routers.DefaultRouter()
 router.register('Especialidades', EspecialidadesViewSet, basename='Especialidades')
@@ -32,4 +33,5 @@ urlpatterns = [
     path('',include(router.urls)),
     path('clientes/', include('clientes.urls', namespace="clientes")),
     path('consultas/', include('consultas.urls', namespace="consultas")),
+    path('', index, name="index"),
 ]
